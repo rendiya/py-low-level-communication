@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 """This module contains drivers for the following equipment from Pfeiffer
 Vacuum:
 * TPG 262 and TPG 261 Dual Gauge. Dual-Channel Measurement and Control
@@ -60,16 +62,17 @@ class AstmConn(object):
         """
         return string + self.CR + self.LF
 
-    def _send_command(self, command):
+    def send_command(self, command):
         """Send a command and check if it is positively acknowledged
         :param command: The command to send
         :type command: str
         :raises IOError: if the negative acknowledged or a unknown response
             is returned
         """
-        
+
         self.serial.write(self._cr_lf(command))
         response = self.serial.readline()
+        print response
         if response == self._cr_lf(self.NAK):
             message = 'Serial communication returned negative acknowledge'
             return IOError(message)
@@ -77,14 +80,35 @@ class AstmConn(object):
             message = 'Serial communication returned unknown response:\n{}'\
                 ''.format(repr(response))
             return IOError(message)
-
-    def _get_data(self):
+    def open_session(self):
+        """Get the session communication in ASTM 
+        :send: data ENQ
+        :return: data ACK
+        """
+        data = self.ACK
+        print data
+        self.serial.write(self.ENQ)
+        data = self.serial.readline()
+        print data
+        
+        if data == self._cr_lf(self.ACK):
+            return "open session"
+        else:
+            return "close session"
+    def get_data(self):
         """Get the data that is ready on the device
         :returns: the raw data
         :rtype:str
         """
-        self.serial.write(self.ENQ)
-        data = self.serial.readline()
+        #self.serial.write(self.ENQ)
+        handshake = self.serial.readline()
+        if handshake == self.ENQ:
+            self.serial.write(self.ACK)
+            data = self.serial.readline()
+        else:
+            self.serial.write(self.NAK)
         return data.rstrip(self.LF).rstrip(self.CR)
+
 astm = AstmConn()
-print astm._send_command(command='coba')
+#print astm.send_command(command='coba')
+print astm.open_session()
