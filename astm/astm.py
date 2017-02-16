@@ -1,13 +1,12 @@
 # -*- coding: utf-8 -*-
+# rendiya (c) 2017
 
-"""This module contains drivers for the following equipment from Pfeiffer
-Vacuum:
-* TPG 262 and TPG 261 Dual Gauge. Dual-Channel Measurement and Control
-    Unit for Compact Gauges
+"""ASTM e1381 client result
 """
 
 import time
 import serial
+from constanta import *
 
 class AstmConn(object):
     r"""Abstract class that implements the common driver for the TPG 261 and
@@ -28,15 +27,6 @@ class AstmConn(object):
     :var ACK: Acknowledge, chr(6), \\x06
     :var NAK: Negative acknowledge, chr(21), \\x15
     """
-    STX = chr(2)
-    ETX = chr(3)  # \x03
-    CR = chr(13)
-    LF = chr(10)
-    ENQ = chr(5)  # \x05
-    ACK = chr(6)  # \x06
-    NAK = chr(21)  # \x15
-    EOT = chr(4)
-    ETB = chr(17)
 
     def __init__(self, port='/dev/ttyACM0', baudrate=9600,timeout=10):
         """Initialize internal variables and serial connection
@@ -55,14 +45,17 @@ class AstmConn(object):
         self.serial = serial.Serial(port = port, baudrate=baudrate, 
         timeout=timeout, writeTimeout=timeout,stopbits=serial.STOPBITS_ONE,
         bytesize=serial.EIGHTBITS,parity=serial.PARITY_NONE)
-    def _astm_string(self, string):
+    def _astm_string(self, string,c1=0,c2=0,type_data="Intermidiate"):
         """Pad carriage return and line feed to a string
         :param string: String to pad
         :type string: str
         :returns: the padded string
         :rtype: str
         """
-        return self.STX + string + self.ETB + self.CR + self.LF
+        if type_data == "Intermidiate":
+            return STX + string + ETB + chr(c1) + chr(c2) + CR + LF
+        elif type_data == "Termination":
+            return STX + string + ETX + chr(c1) + chr(c2) + CR + LF
 
     def send_command(self, command):
         """Send a command and check if it is positively acknowledged
@@ -76,10 +69,11 @@ class AstmConn(object):
         self.serial.write(self._astm_string(string=command))
         response = self.serial.readline()
         print response
-        if response == self._cr_lf(self.NAK):
+        if response == NAK:
             message = 'Serial communication returned negative acknowledge'
+            message = response.encode('hex')
             return IOError(message)
-        elif response != self._cr_lf(self.ACK):
+        elif response != ACK:
             message = response.encode('hex')
             return IOError(message)
     def open_session(self):
@@ -87,34 +81,52 @@ class AstmConn(object):
         :send: data ENQ
         :return: data ACK
         """
-        self.serial.write(self.ENQ)
+        self.serial.write(ENQ)
         i = 0
         for i in range(0,9):
-            self.serial.write(self.ENQ)
+            self.serial.write(ENQ)
             i = i + 1
             data = self.serial.read()
             print 'data hex: '+data.encode('hex')
             print 'data byte: '+data
         
-            if data == self.ACK:
+            if data == ACK:
                 return "open session with ACK response"
-            elif data == self.NAK:
+            elif data == NAK:
+                self.nak_handler()
                 return "receiver send NAK"
     def get_data(self):
         """Get the data that is ready on the device
         :returns: the raw data
         :rtype:str
         """
-        self.serial.write(self.ACK)
-        handshake = self.serial.readline()
-        if handshake != self.NAK:
+        if self.serial.in_waiting:
+            check_data = self.serial.readline()
+            if check_data == ENQ:
+                self.serial.write(ACK)
+            elif check_data == NAK:
+                return "status data NAK"
+            elif check_data == ACK:
+                self.serial.write(NAK)
             data = self.serial.readline()
-        else:
-            self.serial.write(self.NAK)
-            return "Not Acknowledge"
-        return data.rstrip(self.LF).rstrip(self.CR)
+            print data.encode('hex')
+            return data
+    def close_session(self):
+        """End the communication data
+        will send EOT to host
+        :return: EOT
+        """
+        self.serial.write(EOT)
+        return "session has expired"
+    def nak_handler(self):
+        """If server send NAK or Not Acknowledge
+        the client will be send EOT and close_session
+        """
+        self.close_session()
 
 astm = AstmConn(port='/dev/ttyACM0', baudrate=9600)
 #print astm.send_command(command='coba')
 print astm.open_session()
+print astm.get_data()
+print astm.nak_handler()
 #print astm.status()
