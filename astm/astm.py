@@ -55,7 +55,7 @@ class AstmConn(object):
         self.serial = serial.Serial(port = port, baudrate=baudrate, 
         timeout=timeout, writeTimeout=timeout,stopbits=serial.STOPBITS_ONE,
         bytesize=serial.EIGHTBITS,parity=serial.PARITY_NONE)
-    def _cr_lf(self, string):
+    def _astm_string(self, string):
         """Pad carriage return and line feed to a string
         :param string: String to pad
         :type string: str
@@ -73,7 +73,7 @@ class AstmConn(object):
         <STX>[FN][TEXT]<ETB>[C1][C2]<CR><LF>
         """
 
-        self.serial.write(self._cr_lf(command))
+        self.serial.write(self._astm_string(string=command))
         response = self.serial.readline()
         print response
         if response == self._cr_lf(self.NAK):
