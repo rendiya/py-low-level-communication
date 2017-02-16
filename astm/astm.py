@@ -28,13 +28,15 @@ class AstmConn(object):
     :var ACK: Acknowledge, chr(6), \\x06
     :var NAK: Negative acknowledge, chr(21), \\x15
     """
-
+    STX = chr(2)
     ETX = chr(3)  # \x03
     CR = chr(13)
     LF = chr(10)
     ENQ = chr(5)  # \x05
     ACK = chr(6)  # \x06
     NAK = chr(21)  # \x15
+    EOT = chr(4)
+    ETB = chr(17)
 
     def __init__(self, port='/dev/ttyACM0', baudrate=9600,timeout=10):
         """Initialize internal variables and serial connection
@@ -60,7 +62,7 @@ class AstmConn(object):
         :returns: the padded string
         :rtype: str
         """
-        return string + self.CR + self.LF
+        return self.STX + string + self.ETB + self.CR + self.LF
 
     def send_command(self, command):
         """Send a command and check if it is positively acknowledged
@@ -68,6 +70,7 @@ class AstmConn(object):
         :type command: str
         :raises IOError: if the negative acknowledged or a unknown response
             is returned
+        <STX>[FN][TEXT]<ETB>[C1][C2]<CR><LF>
         """
 
         self.serial.write(self._cr_lf(command))
@@ -77,38 +80,41 @@ class AstmConn(object):
             message = 'Serial communication returned negative acknowledge'
             return IOError(message)
         elif response != self._cr_lf(self.ACK):
-            message = 'Serial communication returned unknown response:\n{}'\
-                ''.format(repr(response))
+            message = response.encode('hex')
             return IOError(message)
     def open_session(self):
         """Get the session communication in ASTM 
         :send: data ENQ
         :return: data ACK
         """
-        data = self.ACK
-        print data
         self.serial.write(self.ENQ)
-        data = self.serial.readline()
-        print data
+        i = 0
+        for i in range(0,9):
+            self.serial.write(self.ENQ)
+            i = i + 1
+            data = self.serial.read()
+            print 'data hex: '+data.encode('hex')
+            print 'data byte: '+data
         
-        if data == self._cr_lf(self.ACK):
-            return "open session"
-        else:
-            return "close session"
+            if data == self.ACK:
+                return "open session with ACK response"
+            elif data == self.NAK:
+                return "receiver send NAK"
     def get_data(self):
         """Get the data that is ready on the device
         :returns: the raw data
         :rtype:str
         """
-        #self.serial.write(self.ENQ)
+        self.serial.write(self.ACK)
         handshake = self.serial.readline()
-        if handshake == self.ENQ:
-            self.serial.write(self.ACK)
+        if handshake != self.NAK:
             data = self.serial.readline()
         else:
             self.serial.write(self.NAK)
+            return "Not Acknowledge"
         return data.rstrip(self.LF).rstrip(self.CR)
 
-astm = AstmConn()
+astm = AstmConn(port='/dev/ttyACM0', baudrate=9600)
 #print astm.send_command(command='coba')
 print astm.open_session()
+#print astm.status()
