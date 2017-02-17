@@ -75,7 +75,7 @@ class AstmConn(object):
         """
         i = 0
         for i in range(0,9):
-            self.serial.write(ACK)
+            self.serial.write(ENQ)
             i = i + 1
             data = self.serial.read()
             print 'data hex: '+data.encode('hex')
