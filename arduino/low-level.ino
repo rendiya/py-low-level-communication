@@ -17,42 +17,18 @@
 
 bool synced;
 byte readByte;
+int Led = 13;
 /* Global Variables */
  
 
 void setup() {
   Serial.begin(9600);
   synced = false;
+  pinMode(Led, OUTPUT);
 }
 
 void loop() {
-  if (synced==false){
-    Serial.write(ENQ);
-    if (Serial.available()){
-      readByte = Serial.read();
-      if (readByte == ACK){
-        Sync();
-      }
-    }
-    delay(200);
-  }
-  if (Serial.available()){
-    readByte = Serial.read();
-    if (readByte == ENQ){
-      Serial.write(ACK);
-      Sync();
-      }
-      else if(readByte==EOT){
-        EndSync();
-      }
-      else if(readByte==NAK){
-        EndSync();
-        Serial.write(EOT);
-      }
-      else{
-        Serial.write(NAK);
-      }
-    }
+  SyncStatus();
 }
 
 void Sync(){
@@ -62,4 +38,36 @@ void Sync(){
 
 void EndSync(){
   synced = false;
+}
+
+void SyncStatus(){
+  if (synced == false){
+    digitalWrite(Led, LOW);
+    if(Serial.available()){
+      readByte = Serial.read();
+      if (readByte==ENQ){
+        Serial.write(ACK);
+        Sync();
+      }
+      else if (readByte==EOT){
+        EndSync();
+      }
+      else{
+        Serial.write(NAK);
+      }
+    }
+  }
+  else if (synced == true){
+    digitalWrite(Led, HIGH);
+    if(Serial.available()){
+      readByte = Serial.read();
+      if (readByte==NAK){
+        Serial.write(EOT);
+        EndSync();
+      }
+      else if (readByte==EOT){
+        EndSync();
+      }
+    }
+  }
 }

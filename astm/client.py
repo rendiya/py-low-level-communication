@@ -75,18 +75,24 @@ class AstmConn(object):
         """
         i = 0
         for i in range(0,9):
-            self.serial.write(ENQ)
-            i = i + 1
-            data = self.serial.read()
-            print 'data hex: '+data.encode('hex')
-            print 'data byte: '+data
+            if self.serial.in_waiting:
+                check_data = self.serial.read()
+                if check_data == ENQ:
+                    self.serial.write(ACK)
+                    return "client open with ACK"
+            else:
+                self.serial.write(ENQ)
+                data = self.serial.read()
+                print 'data hex: '+data.encode('hex')
+                print 'data byte: '+data
         
-            if data == ACK:
-                return "open session with ACK response"
-            elif data == NAK:
-                self.nak_handler()
-                return "receiver send NAK"
-            time.sleep(0.2)
+                if data == ACK:
+                    return "open session with ACK response"
+                elif data == NAK:
+                    self.nak_handler()
+                    return "receiver send NAK"
+                    time.sleep(0.2)
+                    i = i + 1
     def get_data(self):
         """Get the data that is ready on the device
         :returns: the raw data
@@ -97,6 +103,7 @@ class AstmConn(object):
             check_data = self.serial.readline()
             if check_data == ENQ:
                 self.serial.write(ACK)
+                data = self.serial.readline()
             elif check_data == NAK:
                 return "status data NAK"
             elif check_data == ACK:
