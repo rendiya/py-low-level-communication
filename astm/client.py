@@ -6,7 +6,7 @@
 
 import time
 import serial
-from constanta import *
+from .constanta import *
 
 class AstmConn(object):
     r"""Abstract class that implements the common driver for the TPG 261 and
@@ -18,14 +18,6 @@ class AstmConn(object):
     * TID: Transmitter identification (gauge identification)
     * UNI: Pressure unit
     * RST: RS232 test
-    This class also contains the following class variables, for the specific
-    characters that are used in the communication:
-    :var ETX: End text (Ctrl-c), chr(3), \\x15
-    :var CR: Carriage return, chr(13), \\r
-    :var LF: Line feed, chr(10), \\n
-    :var ENQ: Enquiry, chr(5), \\x05
-    :var ACK: Acknowledge, chr(6), \\x06
-    :var NAK: Negative acknowledge, chr(21), \\x15
     """
 
     def __init__(self, port='/dev/ttyACM0', baudrate=9600,timeout=10):
@@ -81,10 +73,9 @@ class AstmConn(object):
         :send: data ENQ
         :return: data ACK
         """
-        self.serial.write(ENQ)
         i = 0
         for i in range(0,9):
-            self.serial.write(ENQ)
+            self.serial.write(ACK)
             i = i + 1
             data = self.serial.read()
             print 'data hex: '+data.encode('hex')
@@ -95,11 +86,13 @@ class AstmConn(object):
             elif data == NAK:
                 self.nak_handler()
                 return "receiver send NAK"
+            time.sleep(0.2)
     def get_data(self):
         """Get the data that is ready on the device
         :returns: the raw data
         :rtype:str
         """
+        data = None
         if self.serial.in_waiting:
             check_data = self.serial.readline()
             if check_data == ENQ:
@@ -108,7 +101,8 @@ class AstmConn(object):
                 return "status data NAK"
             elif check_data == ACK:
                 self.serial.write(NAK)
-            data = self.serial.readline()
+            else:
+                data = check_data
             print data.encode('hex')
             return data
     def close_session(self):
@@ -121,12 +115,9 @@ class AstmConn(object):
     def nak_handler(self):
         """If server send NAK or Not Acknowledge
         the client will be send EOT and close_session
+        :return: EOT
         """
-        self.close_session()
-
-astm = AstmConn(port='/dev/ttyACM0', baudrate=9600)
-#print astm.send_command(command='coba')
-print astm.open_session()
-print astm.get_data()
-print astm.nak_handler()
-#print astm.status()
+        return self.close_session()
+    def status(self):
+        data = self.serial.readline()
+        return data.encode('hex')
